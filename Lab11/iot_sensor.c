@@ -19,12 +19,12 @@
 #define IOC_MAGIC 'k'
 #define IOC_SET_SENSOR _IOW(IOC_MAGIC, 1, int)
 #define IOC_SET_UNITS  _IOW(IOC_MAGIC, 2, int)
-#define IOC_SET_RANGE _IOW(IOC_MAGIC, 3, struct range)
+#define IOC_SET_RANGE  _IOW(IOC_MAGIC, 3, struct sensor_range)
 
 enum sensor_type { TEMP = 0, HUMIDITY = 1, PRESSURE = 2 };
 enum temp_unit { CELSIUS = 0, FAHRENHEIT = 1 };
 
-struct range {
+struct sensor_range {
     int min;
     int max;
 };
@@ -37,7 +37,7 @@ struct log_entry {
 struct iot_device {
     enum sensor_type type;
     enum temp_unit unit;
-    struct range range;
+    struct sensor_range range;
     struct semaphore sem;
 
     struct log_entry logs[MAX_LOG_ENTRIES];
@@ -77,7 +77,8 @@ static ssize_t device_read(struct file *file, char __user *buffer,
         return -EIO;
 
     get_random_bytes(&value, sizeof(value));
-    value = dev.range.min + (value % (dev.range.max - dev.range.min + 1));
+    value = dev.range.min +
+            (value % (dev.range.max - dev.range.min + 1));
 
     switch (dev.type) {
     case TEMP:
@@ -106,7 +107,7 @@ static ssize_t device_read(struct file *file, char __user *buffer,
 static long device_ioctl(struct file *file,
                          unsigned int cmd, unsigned long arg) {
     int val;
-    struct range r;
+    struct sensor_range r;
 
     switch (cmd) {
     case IOC_SET_SENSOR:
@@ -128,7 +129,7 @@ static long device_ioctl(struct file *file,
         break;
 
     case IOC_SET_RANGE:
-        if (copy_from_user(&r, (struct range __user *)arg, sizeof(r)))
+        if (copy_from_user(&r, (struct sensor_range __user *)arg, sizeof(r)))
             return -EFAULT;
         if (r.min < r.max)
             dev.range = r;
